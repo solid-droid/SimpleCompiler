@@ -1,6 +1,6 @@
 # Simple Compiler
 Custom rule builder language , compiler and executer for conditions and counters.  
-Live Demo : https://pages.github.ford.com/JNIKHIL/Simple-Compiler/  
+Live Demo : https://solid-droid.github.io/SimpleCompiler/  
   
 # How To Use:  
   
