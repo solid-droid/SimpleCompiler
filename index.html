@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Compiler</title>
+</head>
+<body style="font-family: sans-serif;">
+    <h1>Simple Compiler</h1>
+    <h3>A simple and fast condition / expression compiler and executer </h3>
+    <h3>Fully JavaScript based and no dependencies</h3>
+    <h3>Priority: Bracket >> operators (left to right execution , no BODMAS rule)</h3>
+    <h3>Atleast one space is must between all operators/ variables / constants</h3>
+    <textarea 
+    id="input"
+    style="
+    resize: none;
+    height: 180px;
+    width: 900px;
+    "
+    onkeyup="keyUP()"
+    >( 1 + 1 ) > 1 ? ( 5 + 1 ) : ( 1 + 2 )</textarea>
+    <div style="display: flex;grid-gap: 5px;">
+        <div>Output : </div>
+        <div id="value" style="font-weight: bold;" >6</div>
+    </div>
+    <script src="simpleCompiler.min.js"></script>
+    <script>
+        let engine = new SimpleCompiler('( 1 + 1 ) > 1 ? ( 5 + 1 ) : ( 1 + 2 )');
+
+        ////////////////////////////////////////////////////////////
+        const keyUP = () => {
+
+                const expression =  document.getElementById("input").value;
+                const{output , fail} =  engine.compileAndExecute(expression);
+
+                ///////////////////////////////////////////
+                document.getElementById("value").innerHTML = String(output);
+                if(!fail){
+                    document.getElementById("value").style.color = "black";
+                }else{
+                    document.getElementById("value").style.color = "red";
+                }
+
+        };
+    </script>
+</body>
+</html>
