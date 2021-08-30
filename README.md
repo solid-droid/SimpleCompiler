@@ -14,10 +14,15 @@ let expression = '( 1 + 1 ) > 1' ;
 
 let engine = new SimpleCompiler();
 const{output , fail} =  engine.compileAndExecute(expression);
-
 //output = true , fail = false
 ```
-
+> supporter parameters
+```
+expression : string, 
+machines : any[], 
+postOperation = 'AND' | 'OR' | 'counter',
+id : any
+```
 # Methods  
 
 To compile only
@@ -27,12 +32,20 @@ const{output , fail} =  engine.compile(expression);
 //output = compiled code , fail = false
 //output = error message  , fail = true
 ```
+
 To execute only 
 ```javascript
 const{output , fail} =  engine.execute(compiledCode);
 
 //output = compiler rules , fail = false
 //output = error message  , fail = true
+```
+> supporter parameters
+```
+compiledCode : <compiledCode array>[], 
+machines : any[], 
+postOperation = 'AND' | 'OR' | 'counter',
+id : any
 ```
 
 To add custom properties
@@ -52,19 +65,22 @@ engine.updateProperties(properties , false);
 ```javascript
 let engine = new SimpleCompiler(<expression : string> , {
 {
-  data : (_machine, _PropertyMain, _PropertySub) => return value , 
-  counter : (name) =>  return value , 
-  constant : (name) => return value , 
+  //return data to executer (return is must)
+  data : (machine, PropertyMain, PropertySub) => return value , //properties
+  counter  : name  =>  return value , 
+  constant : name =>  return value , 
   
-  action : (name) => { ... } ,
-  assign : (name, value) => { ... } ,
-  error : error => console.log(error)
+  //output data from executer (no need of return)
+  assign : (machine, property, type , value, id) => { ... } , //asignProperties
+  action : (name, type) => { ... } , //type = play | pause
+  error  : error => console.log(error)
   
   
-  properties : {PropertyMain1 : [<PropertySub1 :string> , PropertySub2, ... ] ,
-                PropertyMain2 : [PropertySub1, PropertySub2, ... ]}, 
+  properties      : {PropertyMain1 : [<PropertySub1 :string> , PropertySub2, ... ] ,
+                    PropertyMain2 : [PropertySub1, PropertySub2, ... ]}, 
+  asignProperties : {PropertyMain1 : [<PropertySub1 :string> , PropertySub2, ... ] ,
+                    PropertyMain2 : [PropertySub1, PropertySub2, ... ]}, 
   machines: [ <machine1 :string> , machine2, ]
-  postOperation : 'counter' || 'OR' || 'AND' ,
  }
 });
 ```
@@ -79,7 +95,8 @@ Ternary       : condition ? success :  fail
 Conditions    : OR , AND , >, >= , == , <=, < , !=
 Arithmetic    : + , - , * , / 
 Booleans	    : true , false 
-Variables     : name.counter, name.constant, name.play
+Variables     : name.counter, name.constant, 
+Actions       : name.play, name.pause,
 Property      : PropertyMain.PropertySub
 
 Rules..................................
@@ -93,4 +110,3 @@ Rules..................................
 5. No space is allowed in string type / name => use underscore as a workaround.
 
 ```
-
