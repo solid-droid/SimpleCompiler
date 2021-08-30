@@ -5,16 +5,9 @@ class SimpleCompiler {
 	variables = ['counter', 'constant', 'play'];
 	booleans = ['true', 'false'];
 	ternary = ['?', ':'];
-    preset = {
-		FAULT: ['code', 'count', 'desc'],
-		BUFFER: ['type', 'count'],
-		STATE: ['value', 'code'],
-		LEADERCALL: ['value', 'team', 'workstation'],
-		ANDONCALL: ['value', 'team', 'workstation'],
-        FONT : ['color','flash'],
-        ASSET : ['path']
-	};
-    properties = {}
+    properties = {};
+    asignProperties = {};
+    compilerProperties = {};
     parsedRule = null;
     error = '';
     errorFunc = null;
@@ -23,6 +16,10 @@ class SimpleCompiler {
     assignFunc = null;
     counterFunc = null;
     constantFunc = null;
+    machines = [];
+    postOperation;
+    id = 0;
+    expression =  'counter';
     
     constructor(expression = '', 
     {
@@ -35,6 +32,7 @@ class SimpleCompiler {
         error, 
         //attributes
         properties, 
+        asignProperties,
         machines = ['<machineID>'] , 
         postOperation = 'counter'
     }={}){
@@ -48,26 +46,33 @@ class SimpleCompiler {
         this.assignFunc = assign;
         this.counterFunc = counter;
         this.constantFunc = constant;
+        this.asignProperties = asignProperties;
 
         if(properties) {
-            updateProperties(properties);
+            this.updateProperties(properties);
+        } else {
+            this.updateProperties({});
         }
     }
     
     updateProperties(properties , reset = true){
         if(reset){
-            this.properties = {...this.preset, ...properties};
+            this.properties = properties;
         } else {
             this.properties = {...this.properties, ...properties};
         }
+        this.compilerProperties = {...this.properties, ...this.asignProperties};
 
     }
 
-    compileAndExecute(expression = this.expression){
+    compileAndExecute(expression = this.expression, machines = this.machines, postOperation = this.postOperation , id = 0){
+        this.id = id;
         this.expression = expression;
+        this.machines = machines;
+        this.postOperation = postOperation;
         const {output , fail} = this.compile();
         if(!fail){
-            return this.execute();
+            return this.execute(this.parsedRule, this.machines, this.postOperation, id);
         } else {
             return {output , fail};
         }
@@ -83,8 +88,11 @@ class SimpleCompiler {
        }
     }
 
-    execute(parsedRule = this.parsedRule){
+    execute(parsedRule = this.parsedRule, machines = this.machines, postOperation = this.postOperation, id =0 ){
+        this.id = id;
         this.parsedRule = parsedRule;
+        this.machines = machines;
+        this.postOperation = postOperation;
         if(this.parsedRule){
             return {output: this.ruleLoop(this.machines, this.parsedRule , this.postOperation), fail:false};
         } else {
@@ -165,10 +173,10 @@ variableParser(parser, element) {
 			parser.push({ module: 'constant', value: element[0], type: 'variable' });
 		} else if (element[1] === 'counter') {
 			parser.push({ module: 'counter', value: element[0], type: null });
-		} else if (element[1] === 'play') {
-			parser.push({ module: 'action', value: element[0], type: 'play' });
-		} else if (Object.keys(this.properties).includes(element[0])) {
-			if (this.properties[element[0]].includes(element[1])) {
+		} else if (element[1] === 'play' || element[1] === 'pause') {
+			parser.push({ module: 'action', value: element[0], type: element[1] });
+		} else if (Object.keys(this.compilerProperties).includes(element[0])) {
+			if (this.compilerProperties[element[0]].includes(element[1])) {
 				parser.push({ module: 'property', value: element[0], type: element[1] });
 			} else {
 				error = true;
@@ -278,7 +286,7 @@ ruleParser(expression) {
 
 findData( property , type , machine){
     let result = 0;
-    if(property === 'FONT'){
+    if (Object.keys(this.asignProperties).includes(property)) {
         result = `${property}-${type}-${machine}`
     } else {
         if(this.dataFunc){
@@ -319,7 +327,8 @@ findCounter(counter){
 
 asignAction(action , value){
     if(this.assignFunc){
-        this.assignFunc(action , value);
+        const [property , type , machine ] = action.split('-');
+        this.assignFunc(machine , property , type , value, this.id);
         return true;
     } else {
         return false;
