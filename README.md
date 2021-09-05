@@ -1,6 +1,6 @@
 # Simple Compiler
 Custom rule builder language , compiler and executer for conditions and counters.  
-Safe-Sandbox instead of using eval()
+Safe-Sandbox instead of using eval()  
 Live Demo : https://solid-droid.github.io/SimpleCompiler/  
   
 # How To Use:  
