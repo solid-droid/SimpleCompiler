@@ -5,45 +5,200 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Compiler</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.23.0/prism.min.js"></script>
 </head>
+<style>
+		.token.primary
+		{
+			color: #0072b5;			
+		}
+		
+		.token.keywords {
+			color: rgb(167, 11, 120);
+		}
+		
+		.token.string
+		{
+			color: #a35114;
+		}
+		
+		.token.operators {
+			color: #c10101;
+		}
+		
+		.token.secondary
+		 {
+			color: #075063;
+		}
+		
+		.token.array
+		 {
+			color: rgb(34, 144, 24);
+		}
+		
+		.token.assign{
+			color: #63258d;
+		}
+  #highlighting {
+	overflow: auto;
+    position: absolute;
+    width: 100%;
+    height: 370px;
+    background: #dcdcdc;
+    padding: 10px;
+    margin: 0;
+  }
+  
+  #editing {
+    resize: none;
+    overflow: auto;
+    position: absolute;
+    white-space: nowrap;
+    color: transparent;
+    background: transparent;
+    caret-color: rgb(85, 85, 85);
+    z-index: 1;
+    tab-size: 2;
+    border: 0;
+    width: 100%;
+    height: 370px;
+    padding: 10px;
+    margin: 0;
+
+	font-size: 15px;
+    line-height: 20px;
+    word-spacing: 5px;
+    font-weight: bold
+  }
+  
+  #highlighting-content {
+	border-radius: 2px;
+    color: rgb(0, 0, 0);
+    position: absolute;
+	tab-size: 2;
+    left: 10px;
+	
+	font-size: 15px;
+    line-height: 20px;
+    word-spacing: 5px;
+    font-weight: bold
+  }
+
+/* End of prism.js syntax highlighting*/
+</style>
 <body style="font-family: sans-serif;">
     <h1>Simple Compiler</h1>
-    <h3>A simple and fast condition / expression compiler and executer </h3>
-    <h3>Fully JavaScript based and no dependencies</h3>
-    <h3>Priority: Bracket >> operators (left to right execution , no BODMAS rule)</h3>
-    <h3>Atleast one space is must between all operators/ variables / constants</h3>
-    <textarea 
-    id="input"
-    style="
-    resize: none;
-    height: 180px;
-    width: 900px;
-    "
-    onkeyup="keyUP()"
-    >( 1 + 1 ) > 1 ? ( 5 + 1 ) : ( 1 + 2 )</textarea>
+    <p>A simple and fast condition / expression compiler and executer <br>
+    Fully JavaScript based and no dependencies <br>
+    Priority: Bracket >> operators (left to right execution , no BODMAS rule) <br>
+    Atleast one space is must between all operators/ variables / constants</p>
+<!-- //////////////// -->
+
+<div style="height: 200px; position: fixed; margin-top:  50px; width: 90%;">
+    <textarea id="editing" spellcheck="false" oninput="update(this.value); sync_scroll(this);" onscroll="sync_scroll(this);" onkeydown="check_tab(this, event);"></textarea>
+    <pre id="highlighting" aria-hidden="true">
+    <code class="language-html" id="highlighting-content"></code>
+    </pre>
+    </div>
+
+<!-- /////////////////// -->
     <div style="display: flex;grid-gap: 5px;">
         <div>Output : </div>
         <div id="value" style="font-weight: bold;" >6</div>
     </div>
     <script src="simpleCompiler.js"></script>
     <script>
-        let engine = new SimpleCompiler('( 1 + 1 ) > 1 ? ( 5 + 1 ) : ( 1 + 2 )');
+        let engine = new SimpleCompiler();
+        customLanguage();
+        const txt = 
+`( 1 + 2 ) > 2 ? ( 1 + 1 ) : ( 1 + 2 )`;
+        document.getElementById('editing').value = txt;
+        update(txt);
 
-        ////////////////////////////////////////////////////////////
-        const keyUP = () => {
 
-                const expression =  document.getElementById("input").value;
-                const{output , fail} =  engine.compileAndExecute(expression);
+function showResult(text) {
 
-                ///////////////////////////////////////////
-                document.getElementById("value").innerHTML = String(output);
-                if(!fail){
-                    document.getElementById("value").style.color = "black";
-                }else{
-                    document.getElementById("value").style.color = "red";
-                }
+        const expression =  text;
+        const{output , fail} =  engine.compileAndExecute(expression);
+        ///////////////////////////////////////////
+        document.getElementById("value").innerHTML = String(output);
+        if(!fail){
+            document.getElementById("value").style.color = "black";
+        }else{
+            document.getElementById("value").style.color = "red";
+        }
 
-        };
+};
+  
+function customLanguage(){
+    Prism.languages.html = {
+    'keywords':{
+        pattern: /(^| |||\n)(LIKE|UNLIKE|BREAK|IN|false|true)(^| |||\n)/,
+		greedy: true
+    },
+    'operators': {
+		pattern: /[.=?:><!()]/,
+		greedy: true
+	},
+	'primary': {
+		pattern: /(^| ?|\n)[A-Za-z]*(?=\.)/,
+		greedy: true
+	},
+	'secondary': {
+		pattern: /(?<=[.])[A-Za-z]*(?=\s)/g,
+		greedy: true
+	},
+    'string': {
+		pattern: /(?<= ([=><!][=]) )'[A-Za-z .,_0-9-]*'/,
+		greedy: true
+	},
+    'assign':{
+		pattern: /(?<= (=) )'[A-Za-z .,_0-9-]*'/,
+		greedy: true
+    },
+    'array': {
+		pattern: /(?<= (IN|LIKE|UNLIKE) )'[A-Za-z .,_0-9-]*'/,
+		greedy: true
+	},
+};
+
+}        
+function update(text) {
+        let result_element = document.querySelector("#highlighting-content");
+        // Handle final newlines (see article)
+        if(text[text.length-1] == "\n") {
+            text += " ";
+        }
+        // Update code
+        result_element.innerHTML = text.replace(new RegExp("&", "g"), "&amp;").replace(new RegExp("<", "g"), "&lt;"); /* Global RegExp */
+        // Syntax Highlight
+        Prism.highlightElement(result_element);
+        showResult(text);
+}
+
+function sync_scroll(element) {
+        /* Scroll result to scroll coords of event - sync with textarea */
+        let result_element = document.querySelector("#highlighting");
+        // Get and set x and y
+        result_element.scrollTop = element.scrollTop;
+        result_element.scrollLeft = element.scrollLeft;
+}
+
+function check_tab(element, event) {
+        let code = element.value;
+        if(event.key == "Tab") {
+            /* Tab key pressed */
+            event.preventDefault(); // stop normal
+            let before_tab = code.slice(0, element.selectionStart); // text before tab
+            let after_tab = code.slice(element.selectionEnd, element.value.length); // text after tab
+            let cursor_pos = element.selectionEnd + 1; // where cursor moves after tab - moving forward by 1 char to after tab
+            element.value = before_tab + "\t" + after_tab; // add tab char
+            // move cursor
+            element.selectionStart = cursor_pos;
+            element.selectionEnd = cursor_pos;
+            update(element.value); // Update text to include indent
+        }
+}
     </script>
 </body>
 </html>

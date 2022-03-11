@@ -1,9 +1,9 @@
 class SimpleCompiler {
-    conditionOperators = ['==', '>', '<', '>=', '<=', '!=', 'AND', 'OR'];
+    conditionOperators = ['==', '>', '<', '>=', '<=', '!=', 'AND', 'OR' , 'IN', 'LIKE', 'UNLIKE'];
 	mathOperators = ['+', '-', '*', '/', '='];
 	brackets = ['(', ')'];
 	variables = ['counter', 'constant', 'play'];
-	booleans = ['true', 'false'];
+	booleans = ['true', 'false', 'BREAK'];
 	ternary = ['?', ':'];
     properties = {};
     asignProperties = {};
@@ -70,9 +70,9 @@ class SimpleCompiler {
         this.expression = expression;
         this.machines = machines;
         this.postOperation = postOperation;
-        const {output , fail} = this.compile();
+        const {output , fail} = this.compile(expression);
         if(!fail){
-            return this.execute(this.parsedRule, this.machines, this.postOperation, id);
+            return this.execute(output, machines, postOperation, id);
         } else {
             return {output , fail};
         }
@@ -80,11 +80,12 @@ class SimpleCompiler {
     }
     compile(expression = this.expression) {
        this.expression = expression;
-       this.parsedRule = this.ruleParser(this.expression)
-       if(!this.parsedRule ){
+       const _parsed = this.ruleParser(expression)
+       this.parsedRule = _parsed;
+       if(!_parsed ){
         return {output : this.error , fail: true};
        } else {
-        return {output : this.parsedRule , fail: false};
+        return {output : _parsed , fail: false};
        }
     }
 
@@ -93,12 +94,34 @@ class SimpleCompiler {
         this.parsedRule = parsedRule;
         this.machines = machines;
         this.postOperation = postOperation;
-        if(this.parsedRule){
-            return {output: this.ruleLoop(this.machines, this.parsedRule , this.postOperation), fail:false};
+        if(Array.isArray(parsedRule)){
+           const splitRules = this.getSplitRules(parsedRule);
+           if(splitRules.length>1){
+            const results = [];
+            splitRules.forEach(rule => {
+                results.push({output: this.ruleLoop(machines, rule, postOperation, id), fail:false});
+            });
+            return results;
+           } else {
+            return {output: this.ruleLoop(machines, splitRules[0] , postOperation, id), fail:false};
+           }
         } else {
             return {output: 'Please compile before executing', fail: true};
         }
         
+    }
+
+    getSplitRules(parsedRule){
+        const splitArrays = [];
+        let lastIndex = 0;
+        parsedRule.forEach((x,i) => {
+            if(x.type === 'control'&& x.module === 'operator' && x.value === 'BREAK'){
+                splitArrays.push(parsedRule.slice(lastIndex, i));
+                lastIndex = i+1;
+            }
+        });
+        splitArrays.push(parsedRule.slice(lastIndex, parsedRule.length));
+        return splitArrays;
     }
 ////////////////////////////////////////////////////////////////////////////////////////
     parserError (error = 'Syntax error. Unable to compile') {
@@ -106,15 +129,22 @@ class SimpleCompiler {
         if(this.errorFunc){
             this.errorFunc(error);
         }
-		// console.log(error);
 	}
 
     operatorParser2(parser, element) {
 		let error = false;
 		if (this.booleans.includes(element[0])) {
-			parser.push({ module: 'constant', value: element[0]=='true' ? true : false, type: 'boolean' });
-		} else if (element[0][0] === '\'' && element[0][element[0].length - 1] === '\'') {
-			parser.push({ module: 'constant', value: element[0].slice(1, -1), type: 'string' });
+            if(element[0] == 'BREAK'){
+                parser.push({ 
+                    module: 'operator', 
+                    value: element[0], 
+                    type: 'control' });
+            } else {
+                parser.push({ 
+                    module: 'constant', 
+                    value: element[0]=='true' ? true : false, 
+                    type: 'boolean' });
+            }
 		} else if (!isNaN(element[0])) {
             let num;
             if(element[1]){
@@ -175,8 +205,8 @@ variableParser(parser, element) {
 			parser.push({ module: 'counter', value: element[0], type: null });
 		} else if (element[1] === 'play' || element[1] === 'pause') {
 			parser.push({ module: 'action', value: element[0], type: element[1] });
-		} else if (Object.keys(this.compilerProperties).includes(element[0])) {
-			if (this.compilerProperties[element[0]].includes(element[1])) {
+		} else if (Object.keys(this.compilerProperties).includes(element[0].toLowerCase())) {
+			if (this.compilerProperties[element[0].toLowerCase()].includes(element[1].toLowerCase())) {
 				parser.push({ module: 'property', value: element[0], type: element[1] });
 			} else {
 				error = true;
@@ -237,31 +267,48 @@ bracketParser(parser) {
 	}
 
 ruleParser(expression) {
-		//removing extra spaces  and new lines
+		///////////////////lexer
 		expression = (expression.replace(/\s\s+/g, ' ')).replace(/\r?\n|\r/g, ' ').trim();
-		const keys = expression.split(' ');
+        const _keys = expression.split("'");
+        let keys =[];
+        _keys.forEach((item , i ) => {
+            if(i%2!==0) {
+                keys.push(`'${item}'`);
+            } else {
+                keys.push(...item.split(' '))
+            }
+        })
+        keys = keys.filter(x => x !== '');
+
+        /////////////////////////////////
 		let parser = [];
 		let error = false;
 		let ternaryCounter = 0;
 		let bracketCounter = 0;
-		keys.forEach(item => {
+   		
+        keys.forEach(item => {
 			const element = item.split('.');
 			if (!error) {
-				if (element.length === 1 || !isNaN(element[1]) ) {
-					const data = this.operatorParser(parser, element, ternaryCounter, bracketCounter);
-					parser = data.parser;
-					error = data.error;
-					ternaryCounter = data.ternaryCounter;
-					bracketCounter = data.bracketCounter;
-				} else if (element.length === 2) {
-					const data = this.variableParser(parser, element);
-					parser = data.parser;
-					error = data.error;
-				} else {
-					//invalid syntax
-					error = true;
-					this.parserError();
-				}
+                if(item[0] === `'`) {
+                    parser.push({ module: 'constant', value: item.slice(1, -1), type: 'string' });
+                } else {
+                    if (element.length === 1 || !isNaN(element[1])) {
+                        const data = this.operatorParser(parser, element, ternaryCounter, bracketCounter);
+                        parser = data.parser;
+                        error = data.error;
+                        ternaryCounter = data.ternaryCounter;
+                        bracketCounter = data.bracketCounter;
+                    } else if (element.length === 2) {
+                        const data = this.variableParser(parser, element);
+                        parser = data.parser;
+                        error = data.error;
+                    } else {
+                        //invalid syntax
+                        error = true;
+                        this.parserError();
+                    }
+                }
+				
 			}
 		});
 		if (!error) 
@@ -283,14 +330,13 @@ ruleParser(expression) {
 		return !error ? parser : false;
 	}
 /////////////////////////////////////////////////////////////////////////////////////
-
-findData( property , type , machine){
+findData( property , type , machine, id){
     let result = 0;
     if (Object.keys(this.asignProperties).includes(property)) {
         result = `${property}-${type}-${machine}`
     } else {
         if(this.dataFunc){
-            result = this.dataFunc(machine, property, type);
+            result = this.dataFunc(machine, property, type, id);
             if(!result){
                 result = 0;
             }
@@ -333,30 +379,31 @@ asignAction(action , value){
     } else {
         return false;
     }
-};
+}
 
-playAction(tune, type) {
+playAction(tune, type, machine, id) {
     if(this.actionFunc){
-        this.actionFunc(tune, type);
+        this.actionFunc(tune, type, machine , id);
     }
     return false;
 }
 
-equals = (a , b) => a === b ? true : false; 
+equals = (a , b) => a == b ? true : false; 
 greaterthan = (a , b) => a > b ? true : false; 
 lessthan = (a , b) => a < b ? true : false; 
 greaterthanEqual = (a , b) => a >= b ? true : false; 
 lessThanEqual = (a , b) => a <= b ? true : false; 
-notEqual = (a , b) => a !== b ? true : false; 
+notEqual = (a , b) => a != b ? true : false; 
 oppAnd = (a , b) => a && b ? true : false; 
 oppOr = (a , b) => a || b ? true : false; 
 add = (a , b) => a + b; 
 sub = (a , b) => a - b; 
 mult = (a , b) => a * b; 
 div = (a , b) => a / b; 
+in = (a , b) => b.includes(a);
+like = (a , b) => a.includes(b);
 
 findResult([data1, data2], opp) {
-    // console.log(data1,opp,data2);
     let result = false;
     switch(opp){
         case '==' : 
@@ -411,12 +458,55 @@ findResult([data1, data2], opp) {
         result = this.asignAction(data1, data2);
         break;
 
+        case 'IN' :{
+            if(typeof data2 == 'number') {
+                data2 = String(data2);
+            }
+            if(typeof data1 == 'number') {
+                data1 = String(data1);
+            }
+        const _arr = data2.split(',').map(x => x.trim());
+        result = this.in(data1, _arr);
+        break;
+        }
+        case 'LIKE' :{
+            if(typeof data2 == 'number') {
+                data2 = String(data2);
+            }
+            if(typeof data1 == 'number') {
+                data1 = String(data1);
+            }
+        const _arr = data2.split(',').map(x => x.trim());
+        result = false;
+        _arr.forEach(x => {
+            if(this.like(data1, x)){
+                result = true;
+            }
+        }) 
+        break;
+        }
+        case 'UNLIKE' :{
+            if(typeof data2 == 'number') {
+                data2 = String(data2);
+            }
+            if(typeof data1 == 'number') {
+                data1 = String(data1);
+            }
+        const _arr = data2.split(',').map(x => x.trim());
+        result = false;
+        _arr.forEach(x => {
+            if(!this.like(data1, x)){
+                result = true;
+            }
+         }) 
+        break;
+        }
         default: break;
     }
     return result;
 }
 
-ruleExecuter (machine, rules, depth=0) {
+ruleExecuter (machine, rules, depth=0 , id) {
     let result = false;
     let End = rules.length;
     let data;
@@ -426,7 +516,7 @@ ruleExecuter (machine, rules, depth=0) {
     for(let index = 0; index < End; ++index){
         const rule = rules[index];
          if(rule.module === 'bracket' && rule.type){
-            const _dat = this.ruleExecuter(machine ,[...rules].splice(index+1,rule.type-rule.index-1),depth+1);
+            const _dat = this.ruleExecuter(machine ,[...rules].splice(index+1,rule.type-rule.index-1),depth+1, id);
             index += rule.type-rule.index;
             if (opp) {
                 result = this.findResult([data ,_dat], opp)
@@ -434,18 +524,20 @@ ruleExecuter (machine, rules, depth=0) {
                 opp = undefined;
             } else {
                 data = _dat;
+                result = data;
+                resultUpdate = true;
             }
         } else if (['property','constant','counter', 'action'].includes(rule.module)) {
             let _dat;
             switch (rule.module) {
                 case 'property' : 
-                    _dat = this.findData(rule.value, rule.type, machine);
+                    _dat = this.findData(rule.value, rule.type, machine, id);
                     break;
                 case 'constant' :
                     _dat = this.findConstant(rule.value, rule.type);
                     break;
                 case 'action'  :
-                    _dat = this.playAction(rule.value, rule.type);
+                    _dat = this.playAction(rule.value, rule.type,machine, id);
                     break;
                 case 'counter' :
                     _dat = this.findCounter(rule.value)
@@ -481,19 +573,16 @@ ruleExecuter (machine, rules, depth=0) {
         }
 
     }
-
     if(data && !resultUpdate){
         result = data;
     }
-
-    // console.log('depth',depth ,': ',result);
     return result;
 };
-ruleLoop(machines, rules , type) {
+ruleLoop(machines, rules , type, id) {
     const result = [];
     let output;
     machines.forEach(asset => {
-        result.push(this.ruleExecuter(asset, rules)); 
+        result.push(this.ruleExecuter(asset, rules, 0 , id)); 
     });
     output = result[0];
     if(type !== 'counter'){
