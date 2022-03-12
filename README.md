@@ -1,5 +1,5 @@
 # Simple Compiler
-Event based Event trigger gateway scripting language
+Event based Event trigger gateway scripting language.  
 Live Demo : https://solid-droid.github.io/SimpleCompiler/  
   
 # How To Use:  
