@@ -332,7 +332,8 @@ ruleParser(expression) {
 /////////////////////////////////////////////////////////////////////////////////////
 findData( property , type , machine, id){
     let result = 0;
-    if (Object.keys(this.asignProperties).includes(property)) {
+    const loweCase = property.toLowerCase();
+    if (Object.keys(this.asignProperties).map(x => x.toLowerCase()).includes(loweCase)) {
         result = `${property}-${type}-${machine}`
     } else {
         if(this.dataFunc){
@@ -451,7 +452,7 @@ findResult([data1, data2], opp) {
         break;
 
         case '/'  : 
-        result = this.mult(data1 , data2);
+        result = this.div(data1 , data2);
         break;
 
         case '=' :
